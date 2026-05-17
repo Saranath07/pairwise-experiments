@@ -1,0 +1,12 @@
+numpy>=1.26
+pandas>=2.1
+choix>=0.3.4
+tqdm>=4.66
+matplotlib>=3.8
+
+# 2c (LLM-as-judge, GPU). The CPU stages 2a/2b do not import these.
+torch>=2.2
+transformers>=4.45
+datasets>=2.20
+accelerate>=0.34
+scipy>=1.11
