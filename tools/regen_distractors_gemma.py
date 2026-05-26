@@ -38,6 +38,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from tqdm import tqdm
+
 log = logging.getLogger(__name__)
 
 
@@ -283,8 +285,11 @@ def regenerate_one_prompt(
     attempt = 0
     while needed_indices and attempt < max_regen_attempts:
         log.info(f"  attempt {attempt+1}: need {len(needed_indices)} samples")
-        # Process in batches of `batch_size`.
-        for start in range(0, len(needed_indices), batch_size):
+        # Process in batches of `batch_size`, with a per-batch tqdm bar so
+        # you can see progress inside one prompt.
+        starts = list(range(0, len(needed_indices), batch_size))
+        bar = tqdm(starts, desc=f"  gemma {sub.name}", ncols=80, leave=False)
+        for start in bar:
             chunk = needed_indices[start:start + batch_size]
             T_chunk = [temps_full[i] for i in chunk]
             outs = sampler.sample_batch(
@@ -294,6 +299,7 @@ def regenerate_one_prompt(
             )
             for slot, txt in zip(chunk, outs):
                 gen_texts[slot] = txt
+            bar.set_postfix(done=sum(t is not None for t in gen_texts))
         # Light dedup pass: empties and obvious duplicates trigger a regen.
         deduped = _dedup_by_prefix(gen_texts)
         gen_texts = [d for d in deduped]
