@@ -130,11 +130,36 @@ class GemmaSampler:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "left"
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=dtype, trust_remote_code=True,
+            model_name,
+            torch_dtype=dtype,
+            trust_remote_code=True,
+            attn_implementation="sdpa",
         ).to(self.device)
         self.model.eval()
         self.max_new_tokens = max_new_tokens
         self.model_name = model_name
+
+        # Gemma-3 has multiple EOS tokens (<eos>, <end_of_turn>). If we don't
+        # pass them all, finished sequences keep generating to max_new_tokens
+        # and the slowest sample in the batch dominates wall-clock.
+        eos_ids = []
+        for tok in ("<eos>", "<end_of_turn>"):
+            try:
+                tid = self.tokenizer.convert_tokens_to_ids(tok)
+                if tid is not None and tid != self.tokenizer.unk_token_id:
+                    eos_ids.append(int(tid))
+            except Exception:
+                pass
+        if self.tokenizer.eos_token_id is not None:
+            eos_ids.append(int(self.tokenizer.eos_token_id))
+        # de-dup, preserve order
+        seen, ordered = set(), []
+        for t in eos_ids:
+            if t not in seen:
+                seen.add(t)
+                ordered.append(t)
+        self.eos_token_ids = ordered or [self.tokenizer.eos_token_id]
+        log.info(f"  eos_token_ids = {self.eos_token_ids}")
 
     def _format(self, user_text: str) -> str:
         msgs = [{"role": "user", "content": user_text}]
@@ -181,6 +206,8 @@ class GemmaSampler:
                     temperature=T,
                     top_p=top_p,
                     pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.eos_token_ids,
+                    use_cache=True,
                 )
             new_tokens = out[:, sub_input_ids.shape[1]:]
             decoded = self.tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
@@ -383,8 +410,8 @@ def main():
     p.add_argument("--root", default="results/v2/nectar_v2")
     p.add_argument("--model", default="google/gemma-3-4b-it")
     p.add_argument("--device", default=None)
-    p.add_argument("--max-new-tokens", type=int, default=512)
-    p.add_argument("--batch-size", type=int, default=8)
+    p.add_argument("--max-new-tokens", type=int, default=384)
+    p.add_argument("--batch-size", type=int, default=24)
     p.add_argument("--n-gemma", type=int, default=90,
                    help="total Gemma fillers per prompt (must equal sum(temp_mix))")
     p.add_argument("--n-gibberish", type=int, default=3)
