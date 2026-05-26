@@ -84,21 +84,76 @@ def _make_gibberish(rng: random.Random) -> str:
 
 
 # ---------- Gemma generation ------------------------------------------------
+#
+# To get *real* diversity from a single model we vary three things per
+# generation slot:
+#   (1) a persona / style hint appended to the user prompt
+#   (2) sampling temperature
+#   (3) top_p / top_k (loosened at high T so the long tail actually fires)
+#
+# Temperature alone barely changes the output for instruction-tuned Gemma:
+# its prior over openers is so peaked that at top_p=0.95 the same "Okay,
+# let's break down..." mode keeps winning. Persona variation reshapes the
+# stylistic prior; sampling-param variation shapes the realised draw.
 
-# (temperature, count) pairs. Sums to 90.
-DEFAULT_TEMP_MIX = [
-    (0.3, 30),
-    (0.7, 30),
-    (1.0, 23),
-    (1.3, 7),
+PERSONAS = [
+    "Answer concisely in 2-3 sentences.",
+    "Answer in bullet points only, no headers or paragraphs.",
+    "Answer with a single specific example, no general explanation.",
+    "Answer in one short paragraph, no headers, no bullet points.",
+    "Answer as if explaining to a 10-year-old, in plain language.",
+    "Answer in a formal academic tone with citations.",
+    "Answer with a numbered step-by-step list.",
+    "Answer skeptically, questioning the premise of the question.",
+    "Answer briefly with no disclaimers, caveats, or preamble.",
+    "Answer with a comparison table if applicable, otherwise structured headings.",
+    "Answer like a no-nonsense expert giving the bottom line first.",
+    "Answer informally as if texting a friend.",
+    "Answer with the trade-offs first and the recommendation last.",
+    "Answer as a single haiku-style poetic stanza of 3-4 lines.",
+    "Answer with an analogy from sports or cooking.",
 ]
 
 
-def _gemma_chat_template(prompt: str) -> str:
-    """Format the Nectar 'Human:/Assistant:' prompt as a Gemma chat turn."""
+# Build the per-slot generation profile: 90 (persona, temperature, top_p) tuples.
+# Spread across personas (15) x sampling configs (6) = 90 distinct profiles.
+#
+# top_p = 1.0 across the board: we want low-probability tokens to actually be
+# drawn, especially at high T.  Clamping top_p at 0.95 was the main reason the
+# v2_gemma run produced 90 near-paraphrases of the same Gemma mode.
+SAMPLING_CONFIGS = [
+    # (T, top_p) -- top_p kept at 1.0 so the long tail can fire.
+    (0.4, 1.00),
+    (0.7, 1.00),
+    (1.0, 1.00),
+    (1.3, 1.00),
+    (1.6, 1.00),
+    (2.0, 1.00),
+]
+# Total profiles: len(PERSONAS) * len(SAMPLING_CONFIGS) = 15 * 6 = 90.
+
+
+def _build_default_profiles():
+    profiles = []
+    for persona in PERSONAS:
+        for (T, top_p) in SAMPLING_CONFIGS:
+            profiles.append({"persona": persona, "T": T, "top_p": top_p})
+    return profiles
+
+
+DEFAULT_PROFILES = _build_default_profiles()
+
+
+def _gemma_chat_template(prompt: str, persona: Optional[str] = None) -> str:
+    """Format the Nectar 'Human:/Assistant:' prompt as a Gemma chat turn,
+    optionally with a persona suffix.  The persona reshapes Gemma's prior
+    over openers and structure -- much stronger diversification lever than
+    temperature alone."""
     user_text = prompt.replace("\n\nHuman:", "").replace("\n\nAssistant:", "").strip()
     if not user_text:
         user_text = prompt.strip()
+    if persona:
+        user_text = f"{user_text}\n\n(Style note: {persona})"
     return user_text
 
 
@@ -169,47 +224,51 @@ class GemmaSampler:
 
     def sample_batch(
         self,
-        user_text: str,
+        prompts_per_row: List[str],
         temperatures: List[float],
-        top_p: float = 0.95,
+        top_ps: List[float],
         seed_base: int = 0,
     ) -> List[str]:
-        """Generate one response per temperature in the input list, batched.
+        """Generate one response per row.  Each row may carry a different
+        chat-formatted prompt, temperature, and top_p so we can fuse persona
+        diversification with sampling-config diversification.
 
-        Returns a list of response strings in the same order as `temperatures`.
+        We re-batch by (T, top_p) so each .generate() call is uniform; rows
+        sharing a sampling config but with different prompts are still padded
+        and run together.
         """
         import torch
 
-        text = self._format(user_text)
-        # Replicate the same prompt B times so the batch is uniform.
-        B = len(temperatures)
-        enc = self.tokenizer(
-            [text] * B, return_tensors="pt", padding=True, truncation=True,
-        ).to(self.device)
-        # Group same-temperature items into a single .generate() call.
-        outputs = [None] * B
-        # Build groups: temperature -> list of indices in the batch
-        groups = {}
-        for i, T in enumerate(temperatures):
-            groups.setdefault(float(T), []).append(i)
+        B = len(prompts_per_row)
+        assert len(temperatures) == B and len(top_ps) == B, "shape mismatch"
 
-        for T, idxs in groups.items():
-            torch.manual_seed(seed_base + int(T * 1000) + idxs[0])
-            sub_input_ids = enc["input_ids"][idxs]
-            sub_attn = enc["attention_mask"][idxs]
+        # Group by (T, top_p) so .generate() can run with uniform decode params.
+        groups = {}
+        for i in range(B):
+            key = (float(temperatures[i]), float(top_ps[i]))
+            groups.setdefault(key, []).append(i)
+
+        outputs: List[Optional[str]] = [None] * B
+
+        for (T, tp), idxs in groups.items():
+            sub_texts = [prompts_per_row[i] for i in idxs]
+            enc = self.tokenizer(
+                sub_texts, return_tensors="pt", padding=True, truncation=True,
+            ).to(self.device)
+            torch.manual_seed(seed_base + int(T * 1000) + int(tp * 100) + idxs[0])
             with torch.no_grad():
                 out = self.model.generate(
-                    input_ids=sub_input_ids,
-                    attention_mask=sub_attn,
+                    input_ids=enc["input_ids"],
+                    attention_mask=enc["attention_mask"],
                     max_new_tokens=self.max_new_tokens,
                     do_sample=True,
                     temperature=T,
-                    top_p=top_p,
+                    top_p=tp,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.eos_token_ids,
                     use_cache=True,
                 )
-            new_tokens = out[:, sub_input_ids.shape[1]:]
+            new_tokens = out[:, enc["input_ids"].shape[1]:]
             decoded = self.tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
             for k, i in enumerate(idxs):
                 outputs[i] = decoded[k].strip()
@@ -233,13 +292,6 @@ def _write_jsonl(path: Path, rows: List[V2Candidate]):
     with open(path, "w") as f:
         for r in rows:
             f.write(json.dumps(asdict(r)) + "\n")
-
-
-def _temperatures_list(mix) -> List[float]:
-    out = []
-    for T, n in mix:
-        out.extend([T] * n)
-    return out
 
 
 def _dedup_by_prefix(texts: List[str], min_len: int = 60) -> List[str]:
@@ -267,7 +319,7 @@ def _dedup_by_prefix(texts: List[str], min_len: int = 60) -> List[str]:
 def regenerate_one_prompt(
     sub: Path,
     sampler: "GemmaSampler",
-    temp_mix,
+    profiles,
     n_gibberish: int,
     rng: random.Random,
     batch_size: int,
@@ -299,12 +351,21 @@ def regenerate_one_prompt(
              f"(was global idx {old_true_top}); will remap.")
 
     prompt_text = real_rows[0].prompt_text
-    user_text = _gemma_chat_template(prompt_text)
 
-    # Build the temperature list for the 90 (or whatever) Gemma rows.
-    temps_full = _temperatures_list(temp_mix)
-    n_gemma = len(temps_full)
-    log.info(f"  generating {n_gemma} Gemma rows (T mix={temp_mix})")
+    # Each of the n_gemma slots gets a (persona, T, top_p) profile.  We
+    # pre-compute the user-text for each slot so sample_batch can group by
+    # (T, top_p) without rebuilding chat templates.
+    n_gemma = len(profiles)
+    log.info(f"  generating {n_gemma} Gemma rows "
+             f"({len(set(p['persona'] for p in profiles))} personas x "
+             f"{len(set((p['T'], p['top_p']) for p in profiles))} sampling configs)")
+
+    user_texts = [
+        sampler._format(_gemma_chat_template(prompt_text, p["persona"]))
+        for p in profiles
+    ]
+    temps = [p["T"] for p in profiles]
+    top_ps = [p["top_p"] for p in profiles]
 
     # Generate, with a few regeneration passes if we hit duplicates / empties.
     gen_texts: List[str] = [None] * n_gemma
@@ -312,37 +373,37 @@ def regenerate_one_prompt(
     attempt = 0
     while needed_indices and attempt < max_regen_attempts:
         log.info(f"  attempt {attempt+1}: need {len(needed_indices)} samples")
-        # Process in batches of `batch_size`, with a per-batch tqdm bar so
-        # you can see progress inside one prompt.
         starts = list(range(0, len(needed_indices), batch_size))
         bar = tqdm(starts, desc=f"  gemma {sub.name}", ncols=80, leave=False)
         for start in bar:
             chunk = needed_indices[start:start + batch_size]
-            T_chunk = [temps_full[i] for i in chunk]
             outs = sampler.sample_batch(
-                user_text=user_text,
-                temperatures=T_chunk,
+                prompts_per_row=[user_texts[i] for i in chunk],
+                temperatures=[temps[i] for i in chunk],
+                top_ps=[top_ps[i] for i in chunk],
                 seed_base=rng.randint(0, 10**9) + attempt * 7919,
             )
             for slot, txt in zip(chunk, outs):
                 gen_texts[slot] = txt
             bar.set_postfix(done=sum(t is not None for t in gen_texts))
-        # Light dedup pass: empties and obvious duplicates trigger a regen.
         deduped = _dedup_by_prefix(gen_texts)
         gen_texts = [d for d in deduped]
         needed_indices = [i for i, t in enumerate(gen_texts) if not t]
         attempt += 1
 
-    # Anything still missing after max_regen_attempts: keep whatever we got
-    # (may be a duplicate); it's already on-topic which is the main goal.
+    # Anything still missing: re-roll once with a different seed; if even
+    # that fails, keep a one-line stub so the slot is filled.
     for i in range(n_gemma):
         if not gen_texts[i]:
-            gen_texts[i] = sampler.sample_batch(
-                user_text=user_text, temperatures=[temps_full[i]],
+            txt = sampler.sample_batch(
+                prompts_per_row=[user_texts[i]],
+                temperatures=[temps[i]],
+                top_ps=[top_ps[i]],
                 seed_base=rng.randint(0, 10**9),
-            )[0] or "I am not sure how to answer this."
+            )[0]
+            gen_texts[i] = txt or "I am not sure how to answer this."
 
-    # Build new candidate rows: 7 real (kept verbatim) + n_gemma gemma + n_gibberish
+    # Build new candidate rows: 7 real (verbatim) + n_gemma gemma + n_gibberish
     new_rows: List[V2Candidate] = []
     for r in real_rows:
         new_rows.append(V2Candidate(
@@ -352,10 +413,14 @@ def regenerate_one_prompt(
             real_local_idx=r.real_local_idx, nectar_rank=r.nectar_rank,
         ))
     for i, txt in enumerate(gen_texts):
+        prof = profiles[i]
+        # Encode the full profile in model_name so it's auditable downstream.
+        # Format: "<model>@T=<T>|p=<top_p>|persona=<short>"
+        persona_short = prof["persona"][:40].replace("\"", "")
         new_rows.append(V2Candidate(
             idx=-1, kind="gemma_filler", prompt_id=real_rows[0].prompt_id,
             prompt_text=prompt_text, response_text=txt,
-            model_name=f"{sampler.model_name}@T={temps_full[i]:.1f}",
+            model_name=f"{sampler.model_name}@T={prof['T']:.2f}|p={prof['top_p']:.2f}|persona={persona_short}",
             source_prompt_id=real_rows[0].prompt_id,
             real_local_idx=-1, nectar_rank=0,
         ))
@@ -389,8 +454,16 @@ def regenerate_one_prompt(
     manifest["previous_true_top_idx"] = old_true_top
     manifest["true_top_idx"] = int(new_true_top)
     manifest["filler_model"] = sampler.model_name
-    manifest["filler_temperature_mix"] = [list(p) for p in temp_mix]
-    manifest["filler_version"] = "v2_gemma"
+    # Audit trail: list every (T, top_p, persona) profile actually used.
+    manifest["filler_profiles"] = [
+        {"T": p["T"], "top_p": p["top_p"], "persona": p["persona"]}
+        for p in profiles
+    ]
+    manifest["filler_personas"] = sorted(set(p["persona"] for p in profiles))
+    manifest["filler_sampling_configs"] = sorted(set(
+        (p["T"], p["top_p"]) for p in profiles
+    ))
+    manifest["filler_version"] = "v3_gemma_diverse"
     # If sonnet_ranking_global was stored, remap to new global ids using
     # real_local_idx -> new global idx.
     rank_path = sub / "sonnet_rank.json"
@@ -412,21 +485,21 @@ def main():
     p.add_argument("--device", default=None)
     p.add_argument("--max-new-tokens", type=int, default=384)
     p.add_argument("--batch-size", type=int, default=24)
-    p.add_argument("--n-gemma", type=int, default=90,
-                   help="total Gemma fillers per prompt (must equal sum(temp_mix))")
     p.add_argument("--n-gibberish", type=int, default=3)
     p.add_argument("--seed", type=int, default=434)
     p.add_argument("--only", default=None,
                    help="comma-separated prompt subdir indices; default all")
-    p.add_argument("--no-regen-if-already-v2", action="store_true",
-                   help="skip prompts whose manifest reports filler_version=v2_gemma")
+    p.add_argument("--skip-if-version", default=None,
+                   help="skip prompts whose manifest reports this filler_version "
+                        "(e.g. v3_gemma_diverse) -- useful for resuming")
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    if sum(n for _, n in DEFAULT_TEMP_MIX) != args.n_gemma:
-        raise SystemExit(f"DEFAULT_TEMP_MIX sums to {sum(n for _,n in DEFAULT_TEMP_MIX)} "
-                         f"but --n-gemma={args.n_gemma}. Edit DEFAULT_TEMP_MIX or pass matching --n-gemma.")
+    profiles = DEFAULT_PROFILES
+    log.info(f"using {len(profiles)} profiles "
+             f"({len(set(p['persona'] for p in profiles))} personas x "
+             f"{len(SAMPLING_CONFIGS)} sampling configs)")
 
     root = Path(args.root)
     prompts_dir = root / "prompts"
@@ -447,13 +520,13 @@ def main():
     t0 = time.time()
     for i, sub in enumerate(sub_dirs):
         log.info(f"=== [{i+1}/{len(sub_dirs)}] {sub} ===")
-        if args.no_regen_if_already_v2:
+        if args.skip_if_version:
             mf = json.load(open(sub / "manifest.json"))
-            if mf.get("filler_version") == "v2_gemma":
-                log.info(f"  skip (already v2_gemma)")
+            if mf.get("filler_version") == args.skip_if_version:
+                log.info(f"  skip (already {args.skip_if_version})")
                 continue
         regenerate_one_prompt(
-            sub=sub, sampler=sampler, temp_mix=DEFAULT_TEMP_MIX,
+            sub=sub, sampler=sampler, profiles=profiles,
             n_gibberish=args.n_gibberish, rng=rng, batch_size=args.batch_size,
         )
     log.info(f"done in {(time.time()-t0)/60:.1f} min")
