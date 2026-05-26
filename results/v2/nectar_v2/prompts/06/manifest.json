@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 6,
+  "target_nectar_row_idx": 7,
+  "prompt_text": "\n\nHuman: Should the US government regulate AI?\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    15,
+    29,
+    31,
+    33,
+    48,
+    54,
+    75
+  ],
+  "sonnet_ranking_global": [
+    15,
+    33,
+    54,
+    75,
+    48,
+    31,
+    29
+  ],
+  "true_top_idx": 15,
+  "ranker_tokens_in": 1181,
+  "ranker_tokens_out": 24
+}

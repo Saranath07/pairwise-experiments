@@ -1,0 +1,25 @@
+{
+  "ranking_local": [
+    1,
+    0,
+    2,
+    5,
+    4,
+    3,
+    6
+  ],
+  "ranking_global": [
+    30,
+    69,
+    91,
+    39,
+    29,
+    76,
+    83
+  ],
+  "best_real_global_idx": 30,
+  "tokens_in": 1038,
+  "tokens_out": 24,
+  "responses_count": 7,
+  "model": "sonnet"
+}

@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 2,
+  "target_nectar_row_idx": 3,
+  "prompt_text": "\n\nHuman: I need a react material ui datepicker that supports selecting multiples dates\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    4,
+    9,
+    11,
+    48,
+    83,
+    84,
+    99
+  ],
+  "sonnet_ranking_global": [
+    99,
+    48,
+    11,
+    83,
+    4,
+    84,
+    9
+  ],
+  "true_top_idx": 99,
+  "ranker_tokens_in": 2993,
+  "ranker_tokens_out": 24
+}

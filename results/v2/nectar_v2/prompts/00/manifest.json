@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 0,
+  "target_nectar_row_idx": 0,
+  "prompt_text": "\n\nHuman: What is the average time to check-in a guest in the hotel at the reception vs. through a digital automated self-checkin system?\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    5,
+    20,
+    36,
+    43,
+    49,
+    79,
+    89
+  ],
+  "sonnet_ranking_global": [
+    20,
+    43,
+    49,
+    89,
+    5,
+    36,
+    79
+  ],
+  "true_top_idx": 20,
+  "ranker_tokens_in": 1547,
+  "ranker_tokens_out": 24
+}

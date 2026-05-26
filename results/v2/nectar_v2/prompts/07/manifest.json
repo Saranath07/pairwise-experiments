@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 7,
+  "target_nectar_row_idx": 8,
+  "prompt_text": "\n\nHuman: How do I get rid of a bruise quickly?\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    47,
+    55,
+    58,
+    70,
+    73,
+    76,
+    98
+  ],
+  "sonnet_ranking_global": [
+    47,
+    73,
+    76,
+    58,
+    98,
+    55,
+    70
+  ],
+  "true_top_idx": 47,
+  "ranker_tokens_in": 2139,
+  "ranker_tokens_out": 24
+}

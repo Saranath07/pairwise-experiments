@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 5,
+  "target_nectar_row_idx": 6,
+  "prompt_text": "\n\nHuman: How have the attitudes towards LGBTQ+ individuals evolved in religious communities over the past decade?\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    1,
+    12,
+    16,
+    53,
+    60,
+    81,
+    99
+  ],
+  "sonnet_ranking_global": [
+    99,
+    16,
+    12,
+    53,
+    1,
+    81,
+    60
+  ],
+  "true_top_idx": 99,
+  "ranker_tokens_in": 2418,
+  "ranker_tokens_out": 24
+}

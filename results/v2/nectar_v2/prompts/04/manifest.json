@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 4,
+  "target_nectar_row_idx": 5,
+  "prompt_text": "\n\nHuman: Step: Open <> using <action python>\nStep: Create some basic visualisations using <action python>\nStep: display visualisations using <action display>\n\nYou can use the following actions:\n\nAction Name: python\nWhen To Use: Use this to execute python code. Display your results using the print fun\u00e7ction.\nInput: Input should be a valid python code. Ensure proper indentation\n\nAction Name: display\nWhen To Use: Use this to display things using streamlit\nInput: The input should be a valid python code using the streamlit library\n\n\nUse the following format:\n        Step 1: The first step\n        Reason: Reason for taking this step\n        Action: the action to take, should be one of ['python', 'display'].\n        Action Input: the input to the action\n        Observation: the result of the action\n        \n        Step 2: The second step\n        Reason: Reason for taking this step\n        Action: the action to take, should be one of ['python', 'display'].\n        Action Input: the input to the action \n        Observation: the result of the action\n\n        ... (this Step/Reason/Action/Action Input/Observation repeats for all steps)\n        \n        Once you have completed all the steps, your final answer should be in the format:\n        Final Answer: NAME_1\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    5,
+    7,
+    39,
+    42,
+    50,
+    63,
+    92
+  ],
+  "sonnet_ranking_global": [
+    5,
+    7,
+    63,
+    42,
+    50,
+    39,
+    92
+  ],
+  "true_top_idx": 5,
+  "ranker_tokens_in": 2528,
+  "ranker_tokens_out": 24
+}

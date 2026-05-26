@@ -1,0 +1,151 @@
+{
+  "num_prompts": 10,
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "seed": 434,
+  "ranker_model": "sonnet",
+  "prompts": [
+    {
+      "prompt_idx": 0,
+      "target_nectar_row_idx": 0,
+      "true_top_idx": 20,
+      "real_global_indices": [
+        5,
+        20,
+        36,
+        43,
+        49,
+        79,
+        89
+      ]
+    },
+    {
+      "prompt_idx": 1,
+      "target_nectar_row_idx": 2,
+      "true_top_idx": 15,
+      "real_global_indices": [
+        2,
+        5,
+        15,
+        24,
+        47,
+        57,
+        87
+      ]
+    },
+    {
+      "prompt_idx": 2,
+      "target_nectar_row_idx": 3,
+      "true_top_idx": 99,
+      "real_global_indices": [
+        4,
+        9,
+        11,
+        48,
+        83,
+        84,
+        99
+      ]
+    },
+    {
+      "prompt_idx": 3,
+      "target_nectar_row_idx": 4,
+      "true_top_idx": 91,
+      "real_global_indices": [
+        9,
+        41,
+        64,
+        70,
+        91,
+        94,
+        97
+      ]
+    },
+    {
+      "prompt_idx": 4,
+      "target_nectar_row_idx": 5,
+      "true_top_idx": 5,
+      "real_global_indices": [
+        5,
+        7,
+        39,
+        42,
+        50,
+        63,
+        92
+      ]
+    },
+    {
+      "prompt_idx": 5,
+      "target_nectar_row_idx": 6,
+      "true_top_idx": 99,
+      "real_global_indices": [
+        1,
+        12,
+        16,
+        53,
+        60,
+        81,
+        99
+      ]
+    },
+    {
+      "prompt_idx": 6,
+      "target_nectar_row_idx": 7,
+      "true_top_idx": 15,
+      "real_global_indices": [
+        15,
+        29,
+        31,
+        33,
+        48,
+        54,
+        75
+      ]
+    },
+    {
+      "prompt_idx": 7,
+      "target_nectar_row_idx": 8,
+      "true_top_idx": 47,
+      "real_global_indices": [
+        47,
+        55,
+        58,
+        70,
+        73,
+        76,
+        98
+      ]
+    },
+    {
+      "prompt_idx": 8,
+      "target_nectar_row_idx": 9,
+      "true_top_idx": 23,
+      "real_global_indices": [
+        0,
+        23,
+        77,
+        82,
+        90,
+        94,
+        99
+      ]
+    },
+    {
+      "prompt_idx": 9,
+      "target_nectar_row_idx": 10,
+      "true_top_idx": 30,
+      "real_global_indices": [
+        29,
+        30,
+        39,
+        69,
+        76,
+        83,
+        91
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 3,
+  "target_nectar_row_idx": 4,
+  "prompt_text": "\n\nHuman: Has a songwriter ever won the Nobel Prize for literature?\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    9,
+    41,
+    64,
+    70,
+    91,
+    94,
+    97
+  ],
+  "sonnet_ranking_global": [
+    91,
+    97,
+    64,
+    70,
+    94,
+    41,
+    9
+  ],
+  "true_top_idx": 91,
+  "ranker_tokens_in": 947,
+  "ranker_tokens_out": 24
+}

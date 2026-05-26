@@ -1,0 +1,30 @@
+{
+  "prompt_idx": 1,
+  "target_nectar_row_idx": 2,
+  "prompt_text": "\n\nHuman: Thank you so far. In this resit exam, I would like to include an open-ended question with four sub questions about the customer discovery, customer validation, customer creation and company building stages of the lean startup method, altogether comprising the customer development phase of any nascent startup. You might want to use the following two books as sources: (1) The Startup Owner's Manual: The Step-by-Step Guide for Building a Great Company by Blank & Dorf (2012) and (2) The Lean Startup: How Today's Entrepreneurs Use Continuous Innovation to Create Radically Successful Businesses by Ries (2011). Include at least one sub question about (continuous) experimentation and validated learning. Please recall that all questions must be formulated in such a way that we tap into students' higher-order thinking. Ideally, there is some variation in question complexity, with later sub questions being somewhat harder to answer than previous ones.\n\nAssistant: ",
+  "n": 100,
+  "n_real": 7,
+  "n_random": 80,
+  "n_gibberish": 13,
+  "real_global_indices": [
+    2,
+    5,
+    15,
+    24,
+    47,
+    57,
+    87
+  ],
+  "sonnet_ranking_global": [
+    15,
+    24,
+    5,
+    87,
+    57,
+    2,
+    47
+  ],
+  "true_top_idx": 15,
+  "ranker_tokens_in": 2584,
+  "ranker_tokens_out": 24
+}
